@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teachable Machine Image Detection</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
+  <style>
+    /* 背景設置 */
+    body {
+      background-color: #fefe94;
+      background-image: url('background.jpg');
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* 標題樣式 */
+    h1, h2 {
+      font-family: "Hachi Maru Pop", system-ui;
+      font-weight: 900;
+      text-align: center;
+      color: #333;
+      background-color: rgba(255, 255, 255, 0.0);
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    /* 提示區域樣式 */
+    #instructions {
+      font-family: "Hachi Maru Pop", system-ui;
+      text-align: center;
+      color: #555;
+      margin: 10px;
+      padding: 10px;
+      background-color: rgba(255, 255, 255, 0.0);
+      border-radius: 10px;
+      max-width: 700px;
+    }
+
+    /* Webcam容器設置 */
+    #webcam-container {
+      box-sizing: border-box;
+      width: 640px;
+      height: 480px;
+      border: 2px solid black;
+      margin: 20px auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: rgba(255, 255, 255, 0.0);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* 預測結果樣式 */
+    #output {
+      margin-top: 20px;
+      width: 640px;
+      font-family: "Hachi Maru Pop", system-ui;
+      font-weight: 900;
+      background-color: rgba(255, 255, 255, 0.0);
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    /* 單個結果容器 */
+    .result-container {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+    }
+
+    /* 類別名稱 */
+    .result-text {
+      width: 20%;
+      text-align: right;
+      padding-right: 10px;
+      font-weight: bold;
+      font-family: "Hachi Maru Pop", system-ui;
+      font-weight: 900;
+    }
+
+    /* 條形圖容器 */
+    .result-bar {
+      width: 60%;
+      height: 20px;
+      background-color: rgba(200, 200, 200, 0.5);
+      position: relative;
+      border-radius: 5px;
+    }
+
+    /* 條形圖內部 */
+    .result-bar-inner {
+      height: 100%;
+      background: linear-gradient(90deg, rgba(50, 150, 250, 0.8), rgba(100, 200, 250, 0.8));
+      border-radius: 5px;
+      transition: width 0.5s ease;
+    }
+
+    /* 百分比文字 */
+    .result-percentage {
+      width: 10%;
+      text-align: left;
+      font-weight: bold;
+      font-family: "Hachi Maru Pop", system-ui;
+      font-weight: 900;
+    }
+
+    /* 錯誤訊息 */
+    .error-message {
+      font-size: 1.2rem;
+      color: red;
+      text-align: center;
+      margin-top: 20px;
+      font-family: "Hachi Maru Pop", system-ui;
+      font-weight: 900;
+    }
+  </style>
+</head>
+<body>
+  <h1>分辨寫的是 A、B、C 還是 D</h1>
+
+  
+
+  <div id="webcam-container"></div>
+  <h2>預測結果</h2>
+  <div id="output">模型加載中...</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <script>
+    // 檢測是否使用了 file:// 協議
+    if (window.location.protocol === "file:") {
+      document.body.innerHTML = `
+        <div class="error-message">
+          請勿通過 file:// 協議打開此頁面。<br>
+          請使用 HTTP 或 HTTPS 伺服器來加載此頁面！<br>
+          <strong>解決方法：</strong><br>
+          1. 安裝一個簡易 HTTP 伺服器（例如：Live Server、NODE.js）。<br>
+          2. 或者將此專案部署到任何網頁伺服器。
+        </div>
+      `;
+    } else {
+      const URL = './model/';
+      let model, webcam, labelContainer, maxPredictions;
+
+      // 初始化模型與攝像頭
+      async function init() {
+        try {
+          model = await tmImage.load(URL + 'model.json', URL + 'metadata.json');
+          maxPredictions = model.getTotalClasses();
+
+          // 初始化攝像頭
+          const flip = true;
+          webcam = new tmImage.Webcam(640, 480, flip);
+          await webcam.setup();
+          await webcam.play();
+
+          // 插入Webcam
+          const webcamContainer = document.getElementById('webcam-container');
+          webcamContainer.appendChild(webcam.canvas);
+
+          // 初始化結果容器
+          labelContainer = document.getElementById('output');
+          labelContainer.innerHTML = "";
+
+          for (let i = 0; i < maxPredictions; i++) {
+            const div = document.createElement('div');
+            div.className = 'result-container';
+            div.innerHTML = `
+              <div class="result-text"></div>
+              <div class="result-bar">
+                <div class="result-bar-inner"></div>
+              </div>
+              <div class="result-percentage"></div>
+            `;
+            labelContainer.appendChild(div);
+          }
+
+          // 啟動預測循環
+          window.requestAnimationFrame(loop);
+        } catch (error) {
+          console.error("初始化失敗：", error);
+          labelContainer.innerHTML = `<div class="error-message">無法加載模型或鏡頭，請檢查模型路徑和設備設置。</div>`;
+        }
+      }
+
+      // 循環預測
+      async function loop() {
+        webcam.update();
+        await predict();
+        window.requestAnimationFrame(loop);
+      }
+
+      // 預測處理
+      async function predict() {
+        const predictions = await model.predict(webcam.canvas);
+        const resultContainers = document.querySelectorAll('.result-container');
+
+        predictions.forEach((prediction, i) => {
+          const textElement = resultContainers[i].querySelector('.result-text');
+          const barElement = resultContainers[i].querySelector('.result-bar-inner');
+          const percentageElement = resultContainers[i].querySelector('.result-percentage');
+
+          textElement.textContent = prediction.className;
+          barElement.style.width = `${(prediction.probability * 100).toFixed(2)}%`;
+          percentageElement.textContent = `${(prediction.probability * 100).toFixed(2)}%`;
+        });
+      }
+
+      // 啟動應用
+      init();
+    }
+  </script>
+</body>
+</html>

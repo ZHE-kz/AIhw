@@ -1,0 +1,15 @@
+1.	本地伺服器開啟方式
+(1)	Node.js:
+a.	至Node.js官網下載安裝包並安裝
+b.	使用命令提示元驗證安裝
+1.	node -v
+2.	npm -v
+c.	在終端安裝 http-server
+1.	npm install -g http-server
+d.	進入專案資料夾，在終端運行以下指令開啟伺服器
+1.	http-server
+(2)	live-server
+a.在終端安裝live-server
+1.	npm install -g live-server
+b. 進入專案資料夾，在終端運行以下指令開啟伺服器
+1.	live-server
